@@ -4,7 +4,11 @@ const fs = require('fs');
 
 const app = express();
 app.use(express.json());
+
+// Remove restrictive security headers
 app.use((req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  res.setHeader('Content-Security-Policy', "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;");
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
