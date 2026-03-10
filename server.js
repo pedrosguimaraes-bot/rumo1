@@ -1,9 +1,36 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve static files — try public/ first, then root
+const publicDir = path.join(__dirname, 'public');
+const rootDir = __dirname;
+
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+} else {
+  app.use(express.static(rootDir));
+}
+
+// Explicit root route as fallback
+app.get('/', (req, res) => {
+  const publicIndex = path.join(__dirname, 'public', 'index.html');
+  const rootIndex = path.join(__dirname, 'index.html');
+  const rumoHtml = path.join(__dirname, 'rumo.html');
+
+  if (fs.existsSync(publicIndex)) {
+    res.sendFile(publicIndex);
+  } else if (fs.existsSync(rootIndex)) {
+    res.sendFile(rootIndex);
+  } else if (fs.existsSync(rumoHtml)) {
+    res.sendFile(rumoHtml);
+  } else {
+    res.status(404).send('index.html not found');
+  }
+});
 
 const SYSTEM = `És o RUMO — guia inteligente das freguesias de Real, Dume e Semelhe, no concelho de Braga, Portugal.
 
@@ -15,29 +42,25 @@ Tom caloroso, rigoroso e convidativo. Português europeu. Respostas concisas mas
 PERCURSOS:
 PR18 BRG · Trilho dos Mosteiros Suevo e Visigótico | Real + Dume | 4,8 km | 1h30 | Fácil | Todo o ano
 Liga Convento de São Francisco (Real) à Igreja São Martinho (Dume). Circular. Piso empedrado. Poucos desníveis.
-Pontos notáveis: Igreja São Jerónimo, Capela São Frutuoso, Caminho do Anel, Aqueduto do Anel, Via Romana XIX, Núcleo Museológico Dume, Estádio Municipal.
 
 PR19 BRG · Trilho dos Mosteiros Visigótico e Beneditino | Real + Semelhe | 14,3 km | 5h00 | Algo difícil | Todo o ano
 Convento de São Francisco (Real) → Mosteiro Beneditino de Tibães. Caminhos medievais, matas, linhas de água.
-Pontos notáveis: Casas Oitocentistas, Fundação Vieira Gomes, Povoado Fortificado Real, Parque do Barral, Fonte Queimeira, Casa da Lavoura, Qta Paço Sandarão, Sítio Arqueológico Sandarão, Igreja São João Baptista Semelhe, Chapel Senhor de Lírio, Monte São Filipe.
 
 PONTOS DE INTERESSE:
-SEMELHE: Monte das Caldas (ecológico, sempre aberto), Monte São Filipe/São Gens (ecológico), Portão Qta Mata (arquitetónico), Chapel Senhor de Lírio (religioso, 08h-20h), Igreja São João Baptista (08h-20h), Sítio Arqueológico Sandarão, Qta Paço Sandarão, Casa Qta Santo António, Casa Lavoura Barral, Fonte Queimeira.
-REAL: Parque do Barral, Miliário Rua Tourido, Ribeira de Tourido, Convento São Francisco, Igreja São Jerónimo, Chapel São Frutuoso/Mausoléu (visigótico, moedas Constantino Magno 306-337 d.C., coord. 41.5524 -8.4299), Caminho Medieval do Anel, Aqueduto do Anel, Quinta Pedagógica, Casas Oitocentistas, Fundação Vieira Gomes, Cruzeiro Senhor Aflitos, Bica de Real.
-DUME: Chapel São Lourenço da Ordem, Via Romana XIX, Igreja São Martinho de Dume (conversão dos Suevos, séc. VI), Núcleo Museológico (eras Castreja/Romana/Sueva), Ruínas Arqueológicas, Túmulo São Martinho, Chapel Carcavelos, Chapel Nossa Sra. Rosário, Caminho do Barroco, Estádio Municipal, Chapel São Sebastião, Monte Castro e Castro Máximo, Ponte Sobremoure.
+SEMELHE: Monte das Caldas, Monte São Filipe/São Gens, Chapel Senhor de Lírio (08h-20h), Igreja São João Baptista, Sítio Arqueológico Sandarão, Fonte Queimeira.
+REAL: Parque do Barral, Convento São Francisco, Igreja São Jerónimo, Chapel São Frutuoso (visigótico), Caminho Medieval do Anel, Quinta Pedagógica.
+DUME: Via Romana XIX, Igreja São Martinho de Dume, Núcleo Museológico, Ruínas Arqueológicas, Chapel São Sebastião.
 
 CONTEXTO:
-Real: Villa romana. Núcleo histórico denso. Ribeiras de Castro e Tourido. Quinta Pedagógica.
-Dume: Sede episcopal séc. VI. São Martinho converteu os Suevos. Igreja visigótica. Forte carácter rural e espiritual.
-Semelhe: Terra rural e laboriosa. Montes e veiga do Rio Torto. Quintas históricas. Proximidade a Braga.`;
+Real: Villa romana. Núcleo histórico denso.
+Dume: Sede episcopal séc. VI. São Martinho converteu os Suevos.
+Semelhe: Terra rural. Montes e veiga do Rio Torto.`;
 
 app.post('/api/chat', async (req, res) => {
   const { messages } = req.body;
-
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Invalid request' });
   }
-
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -53,7 +76,6 @@ app.post('/api/chat', async (req, res) => {
         messages
       })
     });
-
     const data = await response.json();
     res.json(data);
   } catch (err) {
